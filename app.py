@@ -1,8 +1,10 @@
 # app.py
-
-import os
 import streamlit as st
-from preprocessing import load_main_data, clean_main_data
+import pandas as pd
+import geopandas as gpd
+from pathlib import Path
+
+# import *only* your existing viz functions
 from outputs import (
     plot_q3_source_bar,
     plot_q3_source_grouped_bar,
@@ -21,138 +23,96 @@ from outputs import (
     plot_q6_top_waste_species_bar,
     plot_q6_top_waste_species_box,
     plot_q7_loss_by_reason_bar,
-    plot_q12_distribution_sankey
+    plot_q12_distribution_sankey,
 )
-from geospatial_preprocessing import load_geo_data, preprocess_geo
-from geospatial_outputs import show_maps
+from geospatial_outputs import plot_q3_choropleth, plot_q4_choropleth
 
-# Page config
+# ─── Paths ──────────────────────────────────────────────────────────────────────
+BASE_DIR       = Path(__file__).parent
+DATASETS_DIR   = BASE_DIR / "DATASETS"
+CLEANED_DIR    = DATASETS_DIR / "Cleaned_Data"
+GEO_DATA_DIR   = CLEANED_DIR  / "GEO_DATA"
+SHAPE_FILES    = DATASETS_DIR / "shape_files"
+
+# pick the first .shp in your shape_files folder
+SHAPEFILE = next(SHAPE_FILES.glob("*.shp"), None)
+
+
+# ─── CACHING LOADERS ────────────────────────────────────────────────────────────
+@st.cache_data
+def load_csv(name: str) -> pd.DataFrame:
+    return pd.read_csv(CLEANED_DIR / name)
+
+@st.cache_data
+def load_geo_csv(name: str) -> pd.DataFrame:
+    return pd.read_csv(GEO_DATA_DIR / name)
+
+@st.cache_data
+def load_shapefile() -> gpd.GeoDataFrame:
+    if SHAPEFILE is None:
+        st.error("No .shp found in DATASETS/shape_files/")
+        return gpd.GeoDataFrame()
+    return gpd.read_file(SHAPEFILE)
+
+
+# ─── APP LAYOUT ────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Bangladesh Fisheries Dashboard", layout="wide")
+st.title("🇧🇩 Bangladesh Fisheries Dashboard")
 
-# Sidebar inputs
-st.sidebar.header("Configuration")
-data_dir = st.sidebar.text_input("Data folder", "DATASETS")
-shapefile = st.sidebar.text_input("Shapefile path", "DATASETS/shape_files/shape.shp")
+tab1, tab2 = st.tabs(["Tabular Data", "Geospatial Data"])
 
-# Main Data Pipeline
-if st.sidebar.checkbox("Run main data pipeline"):
-    st.header("Survey Data Visualizations")
+with tab1:
+    st.header("Q3: Overview of Fishing Techniques")
+    df3 = load_csv("Q3_SOURCE_OF_FISHING.csv")
+    st.plotly_chart(plot_q3_source_bar(df3), use_container_width=True)
+    st.plotly_chart(plot_q3_source_grouped_bar(df3), use_container_width=True)
 
-    # Load and clean
-    df1, df2, df3, labels = load_main_data(data_dir)
-    cleaned = clean_main_data(df1, df2, df3, labels)
+    st.header("Q4: Total Monthly Catch (MT)")
+    df4 = load_csv("Q4_MONTHLY_CATCH.csv")
+    st.plotly_chart(plot_q4_monthly_catch_bar(df4), use_container_width=True)
+    st.plotly_chart(plot_q4_monthly_catch_line(df4), use_container_width=True)
+    st.plotly_chart(plot_q4_monthly_catch_area(df4), use_container_width=True)
 
-    # Q3: Fishing sources
-    st.subheader("Q3: Fishing Sources")
-    st.plotly_chart(
-        plot_q3_source_bar(cleaned["Q3_source_of_fishing"]),
-        use_container_width=True
-    )
-    st.plotly_chart(
-        plot_q3_source_grouped_bar(cleaned["Q3_source_of_fishing"]),
-        use_container_width=True
-    )
+    st.header("Q4: Yearly Totals for Top 10 Species")
+    df4top = load_csv("Q4_MONTHLY_FISH_CATCH.csv")
+    st.plotly_chart(plot_q4_top_species_bar(df4top), use_container_width=True)
+    st.plotly_chart(plot_q4_top_species_box(df4top), use_container_width=True)
+    st.plotly_chart(plot_q4_top_species_stacked_bar(df4top), use_container_width=True)
+    st.plotly_chart(plot_q4_top_species_line(df4top), use_container_width=True)
 
-    # Q4: Monthly catch
-    st.subheader("Q4: Total Monthly Catch")
-    st.plotly_chart(
-        plot_q4_monthly_catch_bar(cleaned["Q4_monthly_catch"]),
-        use_container_width=True
-    )
-    st.plotly_chart(
-        plot_q4_monthly_catch_line(cleaned["Q4_monthly_catch"]),
-        use_container_width=True
-    )
-    st.plotly_chart(
-        plot_q4_monthly_catch_area(cleaned["Q4_monthly_catch"]),
-        use_container_width=True
-    )
+    st.header("Q5: Annual Catch by Source")
+    df5 = load_csv("Q5_MONTHLY_TOTALS_BY_SOURCE.csv")
+    st.plotly_chart(plot_q5_annual_catch_by_source_bar(df5), use_container_width=True)
+    st.plotly_chart(plot_q5_monthly_catch_by_source_line(df5), use_container_width=True)
 
-    # Q4: Top species
-    st.subheader("Q4: Top 10 Fish Species")
-    st.plotly_chart(
-        plot_q4_top_species_bar(cleaned["Q4_top_species"]),
-        use_container_width=True
-    )
-    st.plotly_chart(
-        plot_q4_top_species_box(cleaned["Q4_top_species"]),
-        use_container_width=True
-    )
-    st.plotly_chart(
-        plot_q4_top_species_stacked_bar(cleaned["Q4_top_species"]),
-        use_container_width=True
-    )
-    st.plotly_chart(
-        plot_q4_top_species_line(cleaned["Q4_top_species"]),
-        use_container_width=True
-    )
+    st.header("Q6: Monthly Wastage (MT)")
+    df6 = load_csv("Q6_MONTHLY_WASTE.csv")
+    st.plotly_chart(plot_q6_monthly_waste_bar(df6), use_container_width=True)
+    st.plotly_chart(plot_q6_monthly_waste_line(df6), use_container_width=True)
+    st.plotly_chart(plot_q6_monthly_waste_area(df6), use_container_width=True)
 
-    # Q5: Annual catch by source
-    st.subheader("Q5: Annual Catch by Source")
-    st.plotly_chart(
-        plot_q5_annual_catch_by_source_bar(cleaned["Q5_by_source"]),
-        use_container_width=True
-    )
-    st.plotly_chart(
-        plot_q5_monthly_catch_by_source_line(cleaned["Q5_by_source"]),
-        use_container_width=True
-    )
+    st.header("Q6: Top-Species Wastage")
+    df6top = load_csv("Q6_MONTHLY_FISH_WASTE.csv")
+    st.plotly_chart(plot_q6_top_waste_species_bar(df6top), use_container_width=True)
+    st.plotly_chart(plot_q6_top_waste_species_box(df6top), use_container_width=True)
 
-    # Q6: Monthly wastage
-    st.subheader("Q6: Monthly Wastage")
-    st.plotly_chart(
-        plot_q6_monthly_waste_bar(cleaned["Q6_monthly_waste"]),
-        use_container_width=True
-    )
-    st.plotly_chart(
-        plot_q6_monthly_waste_line(cleaned["Q6_monthly_waste"]),
-        use_container_width=True
-    )
-    st.plotly_chart(
-        plot_q6_monthly_waste_area(cleaned["Q6_monthly_waste"]),
-        use_container_width=True
-    )
+    st.header("Q7: Wastage by Reason")
+    df7 = load_csv("Q7_ANNUAL_LOSS_BY_REASON.csv")
+    st.plotly_chart(plot_q7_loss_by_reason_bar(df7), use_container_width=True)
 
-    # Q6: Top waste species
-    st.subheader("Q6: Top 10 Wasted Species")
-    st.plotly_chart(
-        plot_q6_top_waste_species_bar(cleaned["Q6_top_waste_species"]),
-        use_container_width=True
-    )
-    st.plotly_chart(
-        plot_q6_top_waste_species_box(cleaned["Q6_top_waste_species"]),
-        use_container_width=True
-    )
+    st.header("Q12: Distribution Channels")
+    df12 = load_csv("Q12_WHERE_DOES_THE_FISH_END_UP.csv")
+    st.plotly_chart(plot_q12_distribution_sankey(df12), use_container_width=True)
 
-    # Q7: Loss by reason
-    st.subheader("Q7: Loss by Reason")
-    st.plotly_chart(
-        plot_q7_loss_by_reason_bar(cleaned["Q7_loss_by_reason"]),
-        use_container_width=True
-    )
 
-    # Q12: Distribution channels
-    st.subheader("Q12: Distribution Channels")
-    st.plotly_chart(
-        plot_q12_distribution_sankey(cleaned["Q12_distribution"]),
-        use_container_width=True
-    )
+with tab2:
+    st.header("Geospatial Analysis")
+    gdf = load_shapefile()
+    if not gdf.empty:
+        st.subheader("Q3: Fishing Sources by District")
+        geo3 = load_geo_csv("Q3_SOURCE_OF_FISHING.csv")
+        st.plotly_chart(plot_q3_choropleth(gdf, geo3), use_container_width=True)
 
-# Geospatial Pipeline
-if st.sidebar.checkbox("Run geospatial pipeline"):
-    st.header("Geospatial Visualizations")
-
-    # Preprocess and write geospatial CSVs
-    gdf = load_geo_data(shapefile)
-    preprocess_geo(
-        gdf,
-        survey_dir=data_dir,
-        output_dir=os.path.join(data_dir, "Cleaned_Data", "GEO_DATA")
-    )
-
-    # Display maps
-    show_maps(
-        shapefile,
-        os.path.join(data_dir, "Cleaned_Data", "GEO_DATA", "Q3_SOURCE_OF_FISHING.csv"),
-        os.path.join(data_dir, "Cleaned_Data", "GEO_DATA", "Q4_MONTHLY_CATCH.csv")
-    )
+        st.subheader("Q4: Per-District Monthly Catch")
+        geo4 = load_geo_csv("Q4_MONTHLY_CATCH.csv")
+        st.plotly_chart(plot_q4_choropleth(gdf, geo4), use_container_width=True)
