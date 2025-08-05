@@ -1,10 +1,11 @@
 # app.py
+
 import streamlit as st
 import pandas as pd
 import geopandas as gpd
 from pathlib import Path
 
-# import *only* your existing viz functions
+# ─── Your existing viz functions ──────────────────────────────────────────────
 from outputs import (
     plot_q3_source_bar,
     plot_q3_source_grouped_bar,
@@ -27,35 +28,35 @@ from outputs import (
 )
 from geospatial_outputs import plot_q3_choropleth, plot_q4_choropleth
 
-# ─── Paths ──────────────────────────────────────────────────────────────────────
-BASE_DIR       = Path(__file__).parent
-DATASETS_DIR   = BASE_DIR / "DATASETS"
-CLEANED_DIR    = DATASETS_DIR / "Cleaned_Data"
-GEO_DATA_DIR   = CLEANED_DIR  / "GEO_DATA"
-SHAPE_FILES    = DATASETS_DIR / "shape_files"
+# ─── Paths ─────────────────────────────────────────────────────────────────────
+BASE_DIR     = Path(__file__).parent
+DATASETS     = BASE_DIR / "DATASETS"
+CLEANED      = DATASETS / "Cleaned_Data"
+GEO_CLEANED  = CLEANED  / "GEO_DATA"
+SHAPE_FOLDER = DATASETS / "shape_files"
+SHAPEFILE    = SHAPE_FOLDER / "shape.shp"   # adjust if yours is named differently
 
-# pick the first .shp in your shape_files folder
-SHAPEFILE = next(SHAPE_FILES.glob("*.shp"), None)
-
-
-# ─── CACHING LOADERS ────────────────────────────────────────────────────────────
+# ─── CACHING HELPERS ────────────────────────────────────────────────────────────
 @st.cache_data
-def load_csv(name: str) -> pd.DataFrame:
-    return pd.read_csv(CLEANED_DIR / name)
+def load_csv(fname: str) -> pd.DataFrame:
+    return pd.read_csv(CLEANED / fname)
 
 @st.cache_data
-def load_geo_csv(name: str) -> pd.DataFrame:
-    return pd.read_csv(GEO_DATA_DIR / name)
+def load_geo_csv(fname: str) -> pd.DataFrame:
+    return pd.read_csv(GEO_CLEANED / fname)
 
 @st.cache_data
 def load_shapefile() -> gpd.GeoDataFrame:
-    if SHAPEFILE is None:
-        st.error("No .shp found in DATASETS/shape_files/")
+    if not SHAPEFILE.exists():
+        st.error(f"Could not find shapefile at {SHAPEFILE}")
         return gpd.GeoDataFrame()
-    return gpd.read_file(SHAPEFILE)
+    gdf = gpd.read_file(SHAPEFILE)
+    # Rename ADM2_EN → q1_d_zila so our choropleth code lines up
+    if "ADM2_EN" in gdf.columns:
+        gdf = gdf.rename(columns={"ADM2_EN": "q1_d_zila"})
+    return gdf
 
-
-# ─── APP LAYOUT ────────────────────────────────────────────────────────────────
+# ─── STREAMLIT LAYOUT ──────────────────────────────────────────────────────────
 st.set_page_config(page_title="Bangladesh Fisheries Dashboard", layout="wide")
 st.title("🇧🇩 Bangladesh Fisheries Dashboard")
 
@@ -104,7 +105,6 @@ with tab1:
     df12 = load_csv("Q12_WHERE_DOES_THE_FISH_END_UP.csv")
     st.plotly_chart(plot_q12_distribution_sankey(df12), use_container_width=True)
 
-
 with tab2:
     st.header("Geospatial Analysis")
     gdf = load_shapefile()
@@ -115,4 +115,8 @@ with tab2:
 
         st.subheader("Q4: Per-District Monthly Catch")
         geo4 = load_geo_csv("Q4_MONTHLY_CATCH.csv")
+        # ─── Rename 'District' → 'q1_d_zila' so it matches the GeoDataFrame ───
+        if "District" in geo4.columns:
+            geo4 = geo4.rename(columns={"District": "q1_d_zila"})
         st.plotly_chart(plot_q4_choropleth(gdf, geo4), use_container_width=True)
+

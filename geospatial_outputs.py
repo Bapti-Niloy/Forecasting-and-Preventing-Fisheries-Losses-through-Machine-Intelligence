@@ -1,5 +1,3 @@
-# geospatial_outputs.py
-
 import pandas as pd
 import geopandas as gpd
 import plotly.graph_objects as go
@@ -14,20 +12,14 @@ COLOR_SCALE = 'OrRd'
 
 
 def plot_q3_choropleth(gdf: gpd.GeoDataFrame, q3_df: pd.DataFrame) -> go.Figure:
-    """
-    Q3: Dropdown‐style choropleth showing counts per fishing source by district.
-    """
-    # Ensure district column is string
     gdf = gdf.rename(columns={'ADM2_EN': 'q1_d_zila'})
     gdf['q1_d_zila'] = gdf['q1_d_zila'].astype(str)
     q3 = q3_df.copy()
     q3['q1_d_zila'] = q3['q1_d_zila'].astype(str)
 
-    # Merge geodata with Q3 counts
     merged = gdf.merge(q3, on='q1_d_zila')
     geojson = merged.to_crs(epsg=4326).__geo_interface__
 
-    # Build traces for each source
     sources = [col for col in q3.columns if col != 'q1_d_zila']
     zmax_dict = {src: merged[src].max() for src in sources}
 
@@ -56,7 +48,6 @@ def plot_q3_choropleth(gdf: gpd.GeoDataFrame, q3_df: pd.DataFrame) -> go.Figure:
             visible=(i == 0)
         ))
 
-    # Dropdown to select source
     buttons = [
         dict(method="update",
              label=src,
@@ -94,7 +85,6 @@ def plot_q3_choropleth(gdf: gpd.GeoDataFrame, q3_df: pd.DataFrame) -> go.Figure:
         font=dict(family="Arial", color="#333")
     )
 
-    # Annotations
     fig.add_annotation(
         text="Data: Bangladesh Fisheries Census 2024",
         showarrow=False,
@@ -114,16 +104,12 @@ def plot_q3_choropleth(gdf: gpd.GeoDataFrame, q3_df: pd.DataFrame) -> go.Figure:
 
 
 def plot_q4_choropleth(gdf: gpd.GeoDataFrame, q4_df: pd.DataFrame) -> go.Figure:
-    """
-    Q4: Slider‐style choropleth showing per-capita catch by month.
-    """
-    # Prepare data
-    gdf = gdf.rename(columns={'ADM2_EN': 'District'})
-    gdf['District'] = gdf['District'].astype(str)
+    gdf = gdf.rename(columns={'ADM2_EN': 'q1_d_zila'})
+    gdf['q1_d_zila'] = gdf['q1_d_zila'].astype(str)
     q4 = q4_df.copy()
-    q4['District'] = q4['District'].astype(str)
+    q4['q1_d_zila'] = q4['q1_d_zila'].astype(str)
 
-    merged = gdf.merge(q4, on='District')
+    merged = gdf.merge(q4, on='q1_d_zila')
     geojson = merged.to_crs(epsg=4326).__geo_interface__
 
     zmax = {m: merged[m].max() for m in MONTHS}
@@ -132,21 +118,20 @@ def plot_q4_choropleth(gdf: gpd.GeoDataFrame, q4_df: pd.DataFrame) -> go.Figure:
     for i, month in enumerate(MONTHS):
         fig.add_trace(go.Choroplethmap(
             geojson=geojson,
-            locations=merged['District'],
+            locations=merged['q1_d_zila'],
             z=merged[month],
-            featureidkey='properties.District',
+            featureidkey='properties.q1_d_zila',
             colorscale=COLOR_SCALE,
             zmin=0,
             zmax=zmax[month],
             marker_line_width=0.5,
             hovertemplate=(
-                "<b>%{properties.District}</b><br>"
+                "<b>%{properties.q1_d_zila}</b><br>"
                 f"{month}: " + "%{z:,}<extra></extra>"
             ),
             visible=(i == 0)
         ))
 
-    # Slider steps
     steps = [
         dict(method="update",
              label=month,
@@ -186,7 +171,6 @@ def plot_q4_choropleth(gdf: gpd.GeoDataFrame, q4_df: pd.DataFrame) -> go.Figure:
         font=dict(family="Arial", color="#333")
     )
 
-    # Annotations
     fig.add_annotation(
         text="Data: Bangladesh Fisheries Census 2024",
         showarrow=False,
@@ -202,7 +186,6 @@ def plot_q4_choropleth(gdf: gpd.GeoDataFrame, q4_df: pd.DataFrame) -> go.Figure:
         font=dict(size=10, color="gray")
     )
 
-    # Legend for Bangla months
     legend_text = (
         "<b>Bangla Months</b><br>"
         "1. Boishakh (Apr–May)<br>"
@@ -235,15 +218,10 @@ def plot_q4_choropleth(gdf: gpd.GeoDataFrame, q4_df: pd.DataFrame) -> go.Figure:
 
 
 def show_maps(shapefile_path: str, q3_csv: str, q4_csv: str) -> None:
-    """
-    Load shapefile and cleaned CSVs, then render both maps in Streamlit.
-    """
-    # Load data
     gdf = gpd.read_file(shapefile_path)
     q3_df = pd.read_csv(q3_csv, dtype={'q1_d_zila': str})
-    q4_df = pd.read_csv(q4_csv, dtype={'District': str})
+    q4_df = pd.read_csv(q4_csv, dtype={'q1_d_zila': str})
 
-    # Plot and display
     fig1 = plot_q3_choropleth(gdf, q3_df)
     fig2 = plot_q4_choropleth(gdf, q4_df)
 
