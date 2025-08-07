@@ -92,7 +92,7 @@ streamlit run app.py
 1. Push this repository to GitHub (ensure LFS is enabled and your large files are committed with LFS).  
 2. In Streamlit Community Cloud, click **New app** → Select your GitHub repo/branch → set **Main file path** to `app.py` → **Deploy**.
 
-### If your app fails to start on Streamlit Cloud
+### If the app fails to start on Streamlit Cloud
 - Make sure the repo is **public** or the app has access to your private repo.
 - Verify LFS is actually pulling the files—missing `.shp/.dbf/.shx` companions or CSVs will crash the app.
 - If LFS bandwidth or size limits are an issue, consider:
