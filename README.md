@@ -5,7 +5,6 @@ _Interactive Streamlit dashboard & notebooks for analyzing post‑harvest fish l
 ---
 
 ## 📸 Screenshots
-> Replace these paths with your own images after you push them (for example in `docs/screenshots/`).
 
 ![Dashboard Overview](docs/overview.gif)
 *Figure 1. Landing page, Navigation, Visualizations and Choropleth Map.*
