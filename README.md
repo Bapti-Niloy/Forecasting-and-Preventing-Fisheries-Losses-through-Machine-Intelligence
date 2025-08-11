@@ -139,3 +139,9 @@ A: Yes—rename your district column to `q1_d_zila` (or update the mapping in `a
 
 **Q: How big can my CSVs be?**  
 A: Keep them as small as practical for fast app startup. Consider aggregating down to the columns the app actually visualizes.
+
+## 👨‍🎓 Author
+
+**Name:** Bapti Niloy Sarkar  
+**Student ID:** st20310829  
+**University:** Cardiff Metropolitan University
